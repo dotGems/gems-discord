@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@types/dotenv": "^8.2.0",
+    "@types/isomorphic-fetch": "^0.0.35",
     "@types/node": "*",
     "@types/node-fetch": "*",
     "ts-node": "*",
@@ -23,6 +24,7 @@
     "discord.js": "13.*",
     "dotenv": "*",
     "eosjs": "21.x",
-    "node-fetch": "*"
+    "isomorphic-fetch": "^3.0.0",
+    "node-fetch": "^3.1.0"
   }
 }
