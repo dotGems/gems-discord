@@ -5,7 +5,10 @@ client.on('ready', async listener => {
 });
 
 client.on('messageCreate', async interaction => {
-  if ( interaction.content == "ping" ) {
-    await interaction.reply('Pong!');
+  const pattern = interaction.content.match(/\$([a-z0-5\.]{1,12})/);
+
+  if ( pattern?.length ) {
+    const account = pattern[1];
+    await interaction.reply(`🎉 Congrats! \`${account}\` was added to POP NFT snapshot 🥳`);
   }
 });
