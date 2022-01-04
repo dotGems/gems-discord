@@ -1,0 +1,28 @@
+{
+  "private": true,
+  "name": "gems.discord",
+  "version": "0.1.0",
+  "description": ".gems Discord",
+  "main": "index.js",
+  "repository": "git@github.com:dotGems/gems-discord.git",
+  "author": "Denis Carriere",
+  "license": "GNU",
+  "scripts": {
+    "dev": "ts-node-dev --transpile-only ./index.ts",
+    "start": "tsc && node ./build/index.js",
+    "pm2": "tsc && pm2 start && pm2 save"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^8.2.0",
+    "@types/node": "*",
+    "@types/node-fetch": "*",
+    "ts-node": "*",
+    "typescript": "*"
+  },
+  "dependencies": {
+    "discord.js": "13.*",
+    "dotenv": "*",
+    "eosjs": "21.x",
+    "node-fetch": "*"
+  }
+}
