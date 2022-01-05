@@ -8,23 +8,19 @@
   "author": "Denis Carriere",
   "license": "GNU",
   "scripts": {
-    "dev": "ts-node-dev --transpile-only ./index.ts",
-    "start": "tsc && node ./build/index.js",
-    "pm2": "tsc && pm2 start && pm2 save"
+    "start": "ts-node-dev --transpile-only ./index.ts"
   },
   "devDependencies": {
-    "@types/dotenv": "^8.2.0",
-    "@types/isomorphic-fetch": "^0.0.35",
+    "@types/dotenv": "*",
+    "@types/isomorphic-fetch": "*",
     "@types/node": "*",
-    "@types/node-fetch": "*",
-    "ts-node": "*",
+    "ts-node-dev": "*",
     "typescript": "*"
   },
   "dependencies": {
     "discord.js": "13.*",
     "dotenv": "*",
     "eosjs": "21.x",
-    "isomorphic-fetch": "^3.0.0",
-    "node-fetch": "^3.1.0"
+    "isomorphic-fetch": "^3.0.0"
   }
 }
