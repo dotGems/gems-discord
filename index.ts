@@ -13,7 +13,8 @@ const CHANNEL_IDS = [
 ]
 
 const ADMIN_CHANNEL_IDS = [
-  "927337249203445900" // #bot-testing
+  "927337249203445900", // #bot-testing
+  "906126857601155142"  // #stream-chat
 ]
 
 function is_admin_channel(interaction: Message<boolean>)
@@ -51,7 +52,7 @@ client.on('messageCreate', async interaction => {
     const pattern = word[0];
     const message = word.slice(1);
     if ( message.length > 12 ) continue;
-    if ( ["$", "!"].indexOf(pattern) == -1 ) return;
+    if ( ["$", "!"].indexOf(pattern) == -1 ) continue;
     await handle_message(interaction, pattern, message );
   }
 });
