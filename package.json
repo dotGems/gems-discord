@@ -8,7 +8,7 @@
   "author": "Denis Carriere",
   "license": "GNU",
   "scripts": {
-    "start": "ts-node-dev --transpile-only ./index.ts"
+    "start": "ts-node-dev --transpile-only ./index.ts --ignore-watch users.json"
   },
   "devDependencies": {
     "@types/dotenv": "*",
