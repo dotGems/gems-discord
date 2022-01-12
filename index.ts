@@ -1,9 +1,14 @@
 import { rpc, client } from "./src/config";
 import fs from "fs";
-import { Message } from "discord.js"
+import { Message, MessageEmbed, CommandInteraction, CacheType } from "discord.js"
+import { SlashCommandBuilder } from '@discordjs/builders';
 
 client.on('ready', async listener => {
   console.log(`Logged in as ${listener.user.tag}!`);
+
+  // commands
+  await client.application.commands.create({name: "ping", description: "responds with ping", type: "CHAT_INPUT"}, "892385699616153600")
+  await client.application.commands.create({name: "snapshot", description: "Generates POP Token snapshot", type: "CHAT_INPUT"}, "892385699616153600")
 });
 
 // CONFIGURATIONS
@@ -17,6 +22,8 @@ const ADMIN_CHANNEL_IDS = [
   // "906126857601155142"  // #stream-chat
 ]
 
+const POP_TOKEN_IMAGE = "https://ipfs.io/ipfs/QmZnZ4eCSWPNU2XkXT4Yn3LsCYXYgCPqgLVpqGBTEBzo91"
+
 function is_admin_channel(interaction: Message<boolean>)
 {
   return ADMIN_CHANNEL_IDS.indexOf(interaction.channelId) != -1;
@@ -29,12 +36,14 @@ function is_channel(interaction: Message<boolean>)
 
 const USERS = new Map<string, string>();
 
-const exists = fs.existsSync("discord.csv");
-const writer = fs.createWriteStream("discord.csv", {flags: "a"});
-if ( !exists ) writer.write("member.id,account,timestamp\n");
+const filename_discord = `./snapshots/${ get_date() }-discord.csv`
+const filename_users = `./snapshots/${ get_date() }-users.json`
+const exists = fs.existsSync(filename_discord);
+const writer = fs.createWriteStream(filename_discord, {flags: "a"});
+if ( !exists ) writer.write("member.id,account,timestamp,date\n");
 
 // load existsing users
-for ( const row of fs.existsSync( "users.json" ) ? require("./users.json") : [] ) {
+for ( const row of fs.existsSync( filename_users ) ? require( filename_users ) : [] ) {
   USERS.set(row[0], row[1]);
 }
 
@@ -48,6 +57,7 @@ async function is_account( account: string ) {
 }
 
 client.on('messageCreate', async interaction => {
+  if ( interaction.author.bot ) return;
   for ( const word of interaction.content.split(" ")) {
     const pattern = word[0];
     const message = word.slice(1);
@@ -57,30 +67,50 @@ client.on('messageCreate', async interaction => {
   }
 });
 
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isCommand()) return;
+	const { commandName } = interaction;
+
+	if (commandName === 'ping') {
+		await ping(interaction);
+	} else if (commandName === 'snapshot') {
+		await generate_snapshot(interaction);
+	}
+});
+
 function handle_message( interaction: Message<boolean>, pattern: string, message: string ) {
   if ( is_channel( interaction ) ) {
     if ( pattern == "$" ) return register_account( interaction, message );
-    if ( pattern == "!" && message == "ping" ) return ping( interaction );
-  }
-
-  if ( is_admin_channel( interaction ) ) {
-    if ( pattern == "!" && message == "list" ) return generate_list( interaction );
   }
 }
 
-async function ping( interaction: Message<boolean> ) {
+async function ping( interaction: CommandInteraction<CacheType> ) {
   await interaction.reply(`🤖 pong!`);
 }
 
-async function generate_list( interaction: Message<boolean> ) {
-  let message = `**Users**: \`${USERS.size}\`\n`
-  message += Array.from(USERS.entries()).map(row => row[1]).join(',')
-  if ( USERS.size ) await interaction.reply(message);
-  else await interaction.reply("empty");
+function get_date() {
+  const now = new Date();
+  return now.toISOString().split("T")[0];
+}
+
+async function generate_snapshot( interaction: CommandInteraction<CacheType> ) {
+  const embed = new MessageEmbed;
+  embed.setTitle("POP Token Snapshot");
+  embed.setThumbnail(POP_TOKEN_IMAGE);
+  embed.addField("Date", get_date())
+  embed.addField("Total", String(USERS.size))
+  if ( USERS.size ) embed.addField("Users", Array.from(USERS.entries()).map(row => `\`${row[1]}\``).join(','))
+  // await interaction.channel.send({embeds: [embed]});
+  await interaction.reply({embeds: [embed]});
 }
 
 async function register_account( interaction: Message<boolean>, account: string ) {
   if ( !valid_account( account ) ) return;
+
+  // reserved accounts
+  if ( ["tip", "balances"].indexOf(account) != -1 ) return;
+
+  // invalid account name
   if ( !(await is_account(account)) ) {
     await interaction.react("🚫");
     return;
@@ -96,10 +126,9 @@ async function register_account( interaction: Message<boolean>, account: string 
   } else {
     await interaction.reply(`🎉 Congrats! \`${account}\` was added to POP Token NFT snapshot (${USERS.size + 1}) 🥳`);
   }
-  // await interaction.react("🎉");
   USERS.set(interaction.member.id, account );
-  writer.write([interaction.member.id, account, interaction.createdTimestamp].join(",") + "\n");
-  fs.writeFileSync("users.json", JSON.stringify(Array.from(USERS.entries()), null, 4));
+  writer.write([interaction.member.id, account, interaction.createdTimestamp, new Date().toISOString()].join(",") + "\n");
+  fs.writeFileSync(filename_users, JSON.stringify(Array.from(USERS.entries()), null, 4));
 }
 
 function valid_account( account: string ) {

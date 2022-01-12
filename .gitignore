@@ -4,7 +4,5 @@
 # Exclude dependencies
 node_modules/
 
-discord.csv
 .env
-
-users.json
+snapshots
