@@ -56,6 +56,17 @@ async function is_account( account: string ) {
   }
 }
 
+client.on('messageUpdate', async (previous, current: any)  => {
+  if ( current.author.bot ) return;
+  for ( const word of current.content.split(" ")) {
+    const pattern = word[0];
+    const message = word.slice(1);
+    if ( message.length > 12 ) continue;
+    if ( ["$", "!"].indexOf(pattern) == -1 ) continue;
+    await handle_message(current, pattern, message );
+  }
+});
+
 client.on('messageCreate', async interaction => {
   if ( interaction.author.bot ) return;
   for ( const word of interaction.content.split(" ")) {
