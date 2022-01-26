@@ -14,12 +14,12 @@ client.on('ready', async listener => {
 // CONFIGURATIONS
 const CHANNEL_IDS = [
   "927337249203445900", // #bot-testing
-  // "906126857601155142"  // #stream-chat
+  "906126857601155142"  // #stream-chat
 ]
 
 const ADMIN_CHANNEL_IDS = [
   "927337249203445900", // #bot-testing
-  // "906126857601155142"  // #stream-chat
+  "906126857601155142"  // #stream-chat
 ]
 
 const POP_TOKEN_IMAGE = "https://ipfs.io/ipfs/QmZnZ4eCSWPNU2XkXT4Yn3LsCYXYgCPqgLVpqGBTEBzo91"
