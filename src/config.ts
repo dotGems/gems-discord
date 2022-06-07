@@ -24,7 +24,7 @@ export const HEADERS = process.env.HEADERS;
 if (!process.env.DISCORD_TOKEN) throw new Error("process.env.DISCORD_TOKEN is required");
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 export const client = new Client({ 
-    intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS],
+    intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS, Intents.FLAGS.GUILD_VOICE_STATES],
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
 client.login(DISCORD_TOKEN);
