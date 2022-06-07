@@ -25,7 +25,7 @@ const ADMIN_CHANNEL_IDS = [
   "906126857601155142"  // #stream-chat
 ]
 
-const POP_TOKEN_IMAGE = "https://ipfs.io/ipfs/QmZnZ4eCSWPNU2XkXT4Yn3LsCYXYgCPqgLVpqGBTEBzo91"
+const POP_TOKEN_IMAGE = "https://ipfs.io/ipfs/QmZnZ4eCSWPNU2XkXT4Yn3LsCYXYgCPqgLVpqGBTEBzo91";
 
 function is_admin_channel(interaction: Message<boolean>)
 {
@@ -40,10 +40,11 @@ function is_channel(interaction: Message<boolean>)
 const USERS = new Map<string, string>();
 const MESSAGES = new Map<string, string>();
 
-const filename_discord = `./snapshots/${ get_date() }-discord.csv`
-const filename_users = `./snapshots/${ get_date() }-users.json`
-const filename_messages = `./snapshots/${ get_date() }-messages.csv`
-const filename_reactions = `./snapshots/${ get_date() }-reactions.csv`
+const filename_discord = `./snapshots/${ get_date() }-discord.csv`;
+const filename_users = `./snapshots/${ get_date() }-users.json`;
+const filename_messages = `./snapshots/${ get_date() }-messages.csv`;
+const filename_reactions = `./snapshots/${ get_date() }-reactions.csv`;
+const filename_vc = `./snapshots/${ get_date() }-voicechat.csv`;
 
 const exists = fs.existsSync(filename_discord);
 const writer = fs.createWriteStream(filename_discord, {flags: "a"});
@@ -57,7 +58,35 @@ const reaction_exists = fs.existsSync(filename_reactions);
 const reaction_writer = fs.createWriteStream(filename_reactions, {flags: "a"});
 if ( !reaction_exists ) reaction_writer.write("authorId,channelId,reaction,messageContent,reactionCount,timestamp,date\n");
 
-//monitor message creation and updates
+
+const vc_exists = fs.existsSync(filename_vc);
+const vc_writer = fs.createWriteStream(filename_vc, {flags: "a"});
+if ( !vc_exists ) vc_writer.write("authorId,channelId,callStatus,checkMuted,checkDeafened,timestamp,date\n");
+
+//monitor voice channels
+
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  //check if deafened or muted
+  const dateString = new Date().toISOString();
+  //check when user joined or left a call
+  if (oldState.channelId == null && newState.channelId != null) {
+    //console.log(newState.id + " joined the call at " + date_string);
+    var userState = "joined";
+    var voiceChannel = newState.channelId;
+  } else if (newState.channelId == null && oldState.channelId != null){
+      //console.log(oldState.id + " left the call at " + date_string);
+      var userState = "left";
+      var voiceChannel = oldState.channelId;
+
+  } else if (newState.id && oldState == null){
+      console.log("Error, both id values are Null");
+  } else {
+      var userState = "on call";
+      var voiceChannel = newState.channelId;
+  }
+  //console.log(newState.id + ", " + voiceChannel + ", Status: " + userState + ", Muted: " + newState.selfMute + ", Deafened: " + newState.selfDeaf + ", " + dateString);
+  vc_writer.write([newState.id,  voiceChannel, userState, newState.selfMute, newState.selfDeaf, dateString].join(",") + "\n");
+});
 
 client.on('messageCreate', async interaction => {
   const message = interaction.content;
