@@ -1,40 +1,47 @@
-import { rpc, client } from "./src/config";
+import { rpc, client, redis_client } from "./src/config";
 import fs from "fs";
 import { Message, MessageEmbed, CommandInteraction, CacheType } from "discord.js"
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { on } from "events";
+import { Stream } from "stream";
+
+redis_client.on('error', err => {
+  console.log('Error' + err);
+});
 
 
 client.on('ready', async listener => {
   
   console.log(`Logged in as ${listener.user.tag}!`);
 
+  await redis_client.connect()
+
   // commands
   await client.application.commands.create({name: "ping", description: "responds with ping", type: "CHAT_INPUT"})
   await client.application.commands.create({name: "snapshot", description: "Generates POP Token snapshot", type: "CHAT_INPUT"})
 });
-
+/*
 // CONFIGURATIONS
 const CHANNEL_IDS = [
-  "927337249203445900", // #bot-testing
-  "906126857601155142"  // #stream-chat
+  "980934610051551282", // #bot-testing
+  "980934610051551282"  // #stream-chat
 ]
 
 const ADMIN_CHANNEL_IDS = [
-  "927337249203445900", // #bot-testing
-  "906126857601155142"  // #stream-chat
+  "980934610051551282", // #bot-testing
+  "980934610051551282"  // #stream-chat
 ]
-
+*/
 const POP_TOKEN_IMAGE = "https://ipfs.io/ipfs/QmZnZ4eCSWPNU2XkXT4Yn3LsCYXYgCPqgLVpqGBTEBzo91";
 
 function is_admin_channel(interaction: Message<boolean>)
 {
-  return ADMIN_CHANNEL_IDS.indexOf(interaction.channelId) != -1;
+  //return ADMIN_CHANNEL_IDS.indexOf(interaction.channelId) != -1;
 }
 
 function is_channel(interaction: Message<boolean>)
 {
-  return CHANNEL_IDS.indexOf(interaction.channelId) != -1;
+  //return CHANNEL_IDS.indexOf(interaction.channelId) != -1;
 }
 
 const USERS = new Map<string, string>();
@@ -42,39 +49,73 @@ const MESSAGES = new Map<string, string>();
 
 const filename_discord = `./snapshots/${ get_date() }-discord.csv`;
 const filename_users = `./snapshots/${ get_date() }-users.json`;
-const filename_messages = `./snapshots/${ get_date() }-messages.csv`;
-const filename_reactions = `./snapshots/${ get_date() }-reactions.csv`;
-const filename_vc = `./snapshots/${ get_date() }-voicechat.csv`;
-
-const exists = fs.existsSync(filename_discord);
-const writer = fs.createWriteStream(filename_discord, {flags: "a"});
-if ( !exists ) writer.write("member.id,account,timestamp,date\n");
-
-const message_exists = fs.existsSync(filename_messages);
-const message_writer = fs.createWriteStream(filename_messages, {flags: "a"});
-if ( !message_exists ) message_writer.write("authorId,channelId,message,timestamp,date\n");
-
-const reaction_exists = fs.existsSync(filename_reactions);
-const reaction_writer = fs.createWriteStream(filename_reactions, {flags: "a"});
-if ( !reaction_exists ) reaction_writer.write("authorId,channelId,reaction,messageContent,reactionCount,timestamp,date\n");
 
 
-const vc_exists = fs.existsSync(filename_vc);
-const vc_writer = fs.createWriteStream(filename_vc, {flags: "a"});
-if ( !vc_exists ) vc_writer.write("authorId,channelId,callStatus,checkMuted,checkDeafened,timestamp,date\n");
+//Detect if event has started, been edited, or ended
+//Not functional
+/*
+client.on('guildScheduledEventCreate', (guildScheduledEvent) =>{
+  console.log(guildScheduledEvent.channelId);
+  console.log(guildScheduledEvent.createdAt);
+  console.log(guildScheduledEvent.scheduledEndAt);
+  console.log(guildScheduledEvent.description);
+  console.log(guildScheduledEvent.status);
+
+
+  console.log("Event created")
+}); 
+
+client.on('guildScheduledEventUpdate', (guildScheduledEvent) =>{
+  const dateString = new Date().toISOString();
+  var description = guildScheduledEvent.description;
+  var name = guildScheduledEvent.name;
+  var channel = guildScheduledEvent.channel;
+  console.log(guildScheduledEvent.channelId);
+  console.log(guildScheduledEvent.createdAt);
+  console.log(guildScheduledEvent.scheduledEndAt);
+  console.log(guildScheduledEvent.description);
+  console.log(guildScheduledEvent.status);
+
+  console.log("Event edited/started")
+
+  if (guildScheduledEvent.status == "ACTIVE" && description == guildScheduledEvent.description && name == guildScheduledEvent.name && channel == guildScheduledEvent.name){
+    console.log("Event has ended" + dateString + " with status " + guildScheduledEvent.status)
+    console.log(description)
+    console.log(name)
+    console.log(channel)
+  } else if (guildScheduledEvent.status == "ACTIVE"){
+    console.log("Event has been modified at" + dateString + " with status " + guildScheduledEvent.status)
+    console.log(description)
+    console.log(name)
+    console.log(channel)
+    var description = guildScheduledEvent.description;
+    var name = guildScheduledEvent.name;
+    var channel = guildScheduledEvent.channel;
+
+  } else if (guildScheduledEvent.status == "SCHEDULED"){
+    var description = guildScheduledEvent.description;
+    var name = guildScheduledEvent.name;
+    var channel = guildScheduledEvent.channel;
+    console.log(description)
+    console.log(name)
+    console.log(channel)
+  }
+}); 
+*/
 
 //monitor voice channels
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
   //check if deafened or muted
   const dateString = new Date().toISOString();
+  var mute = "err";
+  var deaf = "err";
   //check when user joined or left a call
   if (oldState.channelId == null && newState.channelId != null) {
-    //console.log(newState.id + " joined the call at " + date_string);
     var userState = "joined";
     var voiceChannel = newState.channelId;
+    
   } else if (newState.channelId == null && oldState.channelId != null){
-      //console.log(oldState.id + " left the call at " + date_string);
       var userState = "left";
       var voiceChannel = oldState.channelId;
 
@@ -84,9 +125,37 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       var userState = "on call";
       var voiceChannel = newState.channelId;
   }
-  //console.log(newState.id + ", " + voiceChannel + ", Status: " + userState + ", Muted: " + newState.selfMute + ", Deafened: " + newState.selfDeaf + ", " + dateString);
-  vc_writer.write([newState.id,  voiceChannel, userState, newState.selfMute, newState.selfDeaf, dateString].join(",") + "\n");
+
+  if (newState.selfMute == true) {
+    var mute = "muted";
+  } else if (newState.selfMute == false) {
+    var mute = "unmuted";
+  }
+
+  if (newState.selfMute == true) {
+    var deaf = "deafened";
+  } else if (newState.selfMute == false) {
+    var deaf = "not deafened";
+  }
+
+  //insert voice channel data into redis stream
+
+  redis_client.sendCommand([
+    "XADD" , 
+    "voiceChannel" , 
+    "*" , 
+    "memberId" , newState.id , 
+    "channelId" , voiceChannel , 
+    "callStatus" , userState , 
+    "muted" , mute , 
+    "deafened" , deaf , 
+    "date" , new Date().toISOString()
+  ]);
 });
+
+
+
+//monitor messages
 
 client.on('messageCreate', async interaction => {
   const message = interaction.content;
@@ -98,10 +167,17 @@ client.on('messageUpdate', async (previous, current: any)  => {
   await text_monitor(current, message);
 });
 
-//insert messages into csv file
+//insert messages into redis stream
 
 function text_monitor ( interaction: Message<boolean>, message: string ) {
-  message_writer.write([interaction.member.id,  interaction.channelId, message, new Date().toISOString()].join(",") + "\n");
+  redis_client.sendCommand(["XADD" ,
+    "messages" , 
+    "*" , 
+    "memberId", interaction.member.id , 
+    "channelId", interaction.channelId , 
+    "message" , message , 
+    "date" , new Date().toISOString()
+  ]);
 }
 
 //check for message reactions
@@ -115,20 +191,24 @@ client.on('messageReactionAdd', async (reaction, user) => {
 			return;
 		}
 	}
-  const author = reaction.message.author['id'];
-  const emoji = reaction.emoji;
-  const channelId = reaction.message.channelId;
-  const content = reaction.message.content;
-  const count = reaction.count;
-  
-  await react_monitor(author, emoji, channelId, content, count)
+
+//insert reactions into redis stream
+  redis_client.sendCommand([
+    "XADD" , 
+    "reactions" , 
+    "*" , 
+    "memberId" , reaction.message.author['id'] , 
+    "channelId" , reaction.message.channelId , 
+    "emoji" , reaction.emoji.toString() , 
+    "messageReactedTo" , reaction.message.content , 
+    "totalReactions" , String(reaction.count) , 
+    "date" , new Date().toISOString()
+  ]);
 });
 
-function react_monitor( author: any, emoji: any, channelId: any, content: string, count: number) {
-  reaction_writer.write([author, channelId, emoji, content, count, new Date().toISOString()].join(",") + "\n");
-}
 
 // load existsing users
+
 for ( const row of fs.existsSync( filename_users ) ? require( filename_users ) : [] ) {
   USERS.set(row[0], row[1]);
 }
@@ -176,9 +256,9 @@ client.on('interactionCreate', async interaction => {
 });
 
 function handle_message( interaction: Message<boolean>, pattern: string, message: string ) {
-  if ( is_channel( interaction ) ) {
+  //if ( is_channel( interaction ) ) {
     if ( pattern == "$" ) return register_account( interaction, message );
-  }
+  //}
 }
 
 async function ping( interaction: CommandInteraction<CacheType> ) {
@@ -222,10 +302,31 @@ async function register_account( interaction: Message<boolean>, account: string 
   // new user
   } else {
     await interaction.reply(`🎉 Congrats! \`${account}\` was added to POP Token NFT snapshot (${USERS.size + 1}) 🥳`);
+    USERS.set(interaction.member.id, account );
+
+    //log of users who claimed tokens
+
+    redis_client.sendCommand([
+      "XADD" , 
+      "activeUsers" , 
+      "*" , 
+      "memberId" , interaction.member.id , 
+      "channelId" , interaction.channelId , 
+      "account" , account , 
+      "timestamp" , String(interaction.createdTimestamp) , 
+      "date" , new Date().toISOString()
+    ]);
+
+    //add new users
+
+    redis_client.sendCommand([
+      "HSET",
+      "users",
+      interaction.member.id,
+      account
+    ])
   }
-  USERS.set(interaction.member.id, account );
-  writer.write([interaction.member.id, account, interaction.createdTimestamp, new Date().toISOString()].join(",") + "\n");
-  fs.writeFileSync(filename_users, JSON.stringify(Array.from(USERS.entries()), null, 4));
+  //fs.writeFileSync(filename_users, JSON.stringify(Array.from(USERS.entries()), null, 4));
 }
 
 function valid_account( account: string ) {

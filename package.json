@@ -20,8 +20,11 @@
   },
   "dependencies": {
     "discord.js": "^13.5.0",
-    "dotenv": "*",
+    "dotenv": "^16.0.1",
     "eosjs": "21.x",
-    "isomorphic-fetch": "^3.0.0"
+    "ioredis": "^5.0.6",
+    "isomorphic-fetch": "^3.0.0",
+    "redis": "^4.1.0",
+    "redis-modules-sdk": "^1.2.6"
   }
 }
