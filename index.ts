@@ -1,6 +1,6 @@
 import { rpc, client, redis_client } from "./src/config";
 import fs from "fs";
-import { Message, MessageEmbed, CommandInteraction, CacheType } from "discord.js"
+import { Message, MessageEmbed, CommandInteraction, CacheType, TextChannel, Guild, MessageFlags, MessageSelectMenu, ReactionCollector, MessageReaction, ReactionManager, Emoji, Collection } from "discord.js"
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { on } from "events";
 import { Stream } from "stream";
@@ -9,17 +9,192 @@ redis_client.on('error', err => {
   console.log('Error' + err);
 });
 
-
 client.on('ready', async listener => {
-  
   console.log(`Logged in as ${listener.user.tag}!`);
 
   await redis_client.connect()
+
+  //Find messages in server that were missed if bot was offline
+
+  //Retrieve all text channel ids
+  const retrieve = client.channels.cache.filter(guild_type =>(guild_type.type === "GUILD_TEXT")).map(chan_id =>Object.values(({id: chan_id.id})))
+
+  //Limit for how many server messages will be scanned. Note that the quantity of messages pulled from redis will be 1.5x bigger than the messLimit.
+  const messLimit = 100
+  const value = redis_client.sendCommand([
+    "XREVRANGE",
+    "messages", 
+    "+", 
+    "-",
+    "COUNT", String(messLimit * 1.5),
+  ]);
+  
+  value.then(function(last_message) {
+    while (retrieve.length != 0) {
+      //select from text channel list
+      const channel = client.channels.cache.get(retrieve[0][0])
+      if (channel.isText()) {
+      channel.messages.fetch({limit: messLimit}).then(messages => {
+        
+        //pull messages from discord channels
+        var mapped = messages.map(mess =>({ 
+          channelId: mess.channelId, 
+          messageId: mess.id, 
+          content: mess.content 
+        }));
+
+        //pull messaged from redis
+        var discMapped = (last_message as unknown as any[]).map(nested => nested.map(disc =>({
+          channelId: disc[3], 
+          messageId: disc[5], 
+          content: disc[7] 
+        })).pop());
+
+        //find differences
+        let rev_difference = mapped.filter(object1 => 
+          !discMapped.some(object2 => object1.messageId === object2.messageId)
+        );
+
+        var difference = rev_difference.reverse()
+        console.log("Missed Messages:")
+        console.table(difference)
+
+        //insert messages into redis
+        while (difference.length != 0) {
+          channel.messages.fetch(difference[0].messageId).then(new_mes => {
+            if (new_mes.type === 'DEFAULT') {
+              //console.log(new_mes.author.id, new_mes.channelId, new_mes.id, new_mes.content, new Date(new_mes.createdTimestamp).toISOString())
+              redis_client.sendCommand([
+                
+                "XADD" ,
+                "messages" , 
+                "*" , 
+                "serverId", new_mes.guild.id,
+                "memberId", new_mes.author.id , 
+                "channelId", new_mes.channelId , 
+                "messageId", new_mes.id, 
+                "message" , new_mes.content , 
+                "date" , new Date(new_mes.createdTimestamp).toISOString()
+              ])
+            }
+          })
+          difference.shift();
+        }
+      })
+      retrieve.shift();
+    }
+  }
+  });
+
+  //Find reactions in server that were missed if bot was offline
+
+  //Retrieve all text channel ids
+  const retrieveTwo = client.channels.cache.filter(guild_type =>(guild_type.type === "GUILD_TEXT")).map(chan_id =>Object.values(({id: chan_id.id})))
+
+  //Limit for how many server messages will be scanned. Note that the quantity of messages pulled from redis will be 1.5x bigger than the rateLimit.
+  const reactLimit = 100
+  const react_value = redis_client.sendCommand([
+    "XREVRANGE",
+    "reactions", 
+    "+", 
+    "-",
+    "COUNT", String(reactLimit * 1.5),
+  ]);
+  
+  react_value.then(async function(last_reaction) {
+    while (retrieveTwo.length != 0) {
+
+      //select from text channel list
+      const channel = client.channels.cache.get(retrieveTwo[0][0])
+      if (channel.isText()) {
+        
+      
+      channel.messages.fetch({limit: messLimit}).then(async messages => {
+        
+        //pull reactions from discord channels
+        var messageId = (messages.map(mess =>{return mess.id}));
+
+        var i = 0
+        var reactMapped = []
+        while (messageId.length != i) {
+          const react = await channel.messages.fetch(messageId[i])
+          
+          const mapped = react.reactions.cache.map(reaction => ({
+            channelId: reaction.message.channel.id, 
+            memberId: reaction.message.author.id,
+            messageId: reaction.message.id,
+            emoji: reaction.emoji.name
+          }));
+
+          var len = mapped.length
+
+          if (len !== 0) {
+            mapped.map(thing => (
+              reactMapped.push(thing)
+            ))
+          }
+
+          if (i === reactLimit -1) {
+            break;
+          }
+
+          var i = i + 1
+        }
+
+        //pull reactions from redis
+        var discMapped = (last_reaction as unknown as any[]).map(nested => nested.map(disc =>({
+          channelId: disc[3], 
+          memberId: disc[1],
+          messageId: disc[5],
+          emoji: disc[7], 
+        })).pop());
+
+        //find differences
+        let rev_difference = reactMapped.filter(object1 => 
+          !discMapped.some(object2 => 
+            object1.memberId === object2.memberId && 
+            object1.emoji === object2.emoji && 
+            object1.channelId === object2.channelId && 
+            object1.messageId === object2.messageId
+          )
+        );
+
+        var difference = rev_difference.reverse()
+        console.log("Missed Reactions:")
+        console.table(difference)
+        //insert messages into redis
+        while (difference.length != 0) {
+          var  diff = difference[0]
+          const react = await channel.messages.fetch(diff.messageId)
+          var timestamp = react.reactions.cache.get(diff.emoji).message.createdTimestamp
+          //console.log(diff.channelId, diff.memberId, diff.messageId, diff.emoji, react.reactions.cache.get(diff.emoji).message.content, react.reactions.cache.get(diff.emoji).count, new Date(timestamp).toISOString())
+          
+          redis_client.sendCommand([
+            "XADD" ,
+            "reactions" , 
+            "*" , 
+            "serverId", String(react.reactions.cache.get(diff.emoji).message.guild.id),
+            "memberId", diff.memberId , 
+            "channelId", diff.channelId , 
+            "messageId", diff.messageId,
+            "emoji", diff.emoji , 
+            "messageReactedTo" , String(react.reactions.cache.get(diff.emoji).message.content) ,
+            "totalReactions" , String(react.reactions.cache.get(diff.emoji).count) , 
+            "date" , new Date(timestamp).toISOString()
+          ])
+          difference.shift();
+        }
+      })
+      retrieveTwo.shift();
+    }
+  }
+  });
 
   // commands
   await client.application.commands.create({name: "ping", description: "responds with ping", type: "CHAT_INPUT"})
   await client.application.commands.create({name: "snapshot", description: "Generates POP Token snapshot", type: "CHAT_INPUT"})
 });
+
 /*
 // CONFIGURATIONS
 const CHANNEL_IDS = [
@@ -144,6 +319,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     "XADD" , 
     "voiceChannel" , 
     "*" , 
+    "serverId" , newState.guild.id,
     "memberId" , newState.id , 
     "channelId" , voiceChannel , 
     "callStatus" , userState , 
@@ -170,11 +346,14 @@ client.on('messageUpdate', async (previous, current: any)  => {
 //insert messages into redis stream
 
 function text_monitor ( interaction: Message<boolean>, message: string ) {
-  redis_client.sendCommand(["XADD" ,
+  redis_client.sendCommand([
+    "XADD" ,
     "messages" , 
     "*" , 
-    "memberId", interaction.member.id , 
-    "channelId", interaction.channelId , 
+    "serverId" , interaction.guild.id,
+    "memberId" , interaction.member.id , 
+    "channelId" , interaction.channelId , 
+    "messageId" , interaction.id, 
     "message" , message , 
     "date" , new Date().toISOString()
   ]);
@@ -196,9 +375,11 @@ client.on('messageReactionAdd', async (reaction, user) => {
   redis_client.sendCommand([
     "XADD" , 
     "reactions" , 
-    "*" , 
+    "*" ,
+    "serverId",  reaction.message.guild.id,
     "memberId" , reaction.message.author['id'] , 
     "channelId" , reaction.message.channelId , 
+    "messageId" , reaction.message.id,
     "emoji" , reaction.emoji.toString() , 
     "messageReactedTo" , reaction.message.content , 
     "totalReactions" , String(reaction.count) , 
@@ -309,7 +490,8 @@ async function register_account( interaction: Message<boolean>, account: string 
     redis_client.sendCommand([
       "XADD" , 
       "activeUsers" , 
-      "*" , 
+      "*" ,
+      "serverId" , interaction.guild.id, 
       "memberId" , interaction.member.id , 
       "channelId" , interaction.channelId , 
       "account" , account , 
@@ -319,12 +501,11 @@ async function register_account( interaction: Message<boolean>, account: string 
 
     //add new users
 
-    redis_client.sendCommand([
-      "HSET",
-      "users",
+    redis_client.hSet(
+      'users',
       interaction.member.id,
       account
-    ])
+    );
   }
   //fs.writeFileSync(filename_users, JSON.stringify(Array.from(USERS.entries()), null, 4));
 }
