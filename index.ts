@@ -4,6 +4,7 @@ import { Message, MessageEmbed, CommandInteraction, CacheType, TextChannel, Guil
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { on } from "events";
 import { Stream } from "stream";
+import { CpuInfo } from "os";
 
 redis_client.on('error', err => {
   console.log('Error' + err);
@@ -45,11 +46,11 @@ client.on('ready', async listener => {
 
         //pull messaged from redis
         var discMapped = (last_message as unknown as any[]).map(nested => nested.map(disc =>({
-          channelId: disc[3], 
-          messageId: disc[5], 
-          content: disc[7] 
+          channelId: disc[5], 
+          messageId: disc[7], 
+          content: disc[9] 
         })).pop());
-
+        
         //find differences
         let rev_difference = mapped.filter(object1 => 
           !discMapped.some(object2 => object1.messageId === object2.messageId)
@@ -64,6 +65,7 @@ client.on('ready', async listener => {
           channel.messages.fetch(difference[0].messageId).then(new_mes => {
             if (new_mes.type === 'DEFAULT') {
               //console.log(new_mes.author.id, new_mes.channelId, new_mes.id, new_mes.content, new Date(new_mes.createdTimestamp).toISOString())
+              
               redis_client.sendCommand([
                 
                 "XADD" ,
@@ -143,10 +145,10 @@ client.on('ready', async listener => {
 
         //pull reactions from redis
         var discMapped = (last_reaction as unknown as any[]).map(nested => nested.map(disc =>({
-          channelId: disc[3], 
-          memberId: disc[1],
-          messageId: disc[5],
-          emoji: disc[7], 
+          channelId: disc[5], 
+          memberId: disc[3],
+          messageId: disc[7],
+          emoji: disc[9], 
         })).pop());
 
         //find differences
@@ -168,7 +170,6 @@ client.on('ready', async listener => {
           const react = await channel.messages.fetch(diff.messageId)
           var timestamp = react.reactions.cache.get(diff.emoji).message.createdTimestamp
           //console.log(diff.channelId, diff.memberId, diff.messageId, diff.emoji, react.reactions.cache.get(diff.emoji).message.content, react.reactions.cache.get(diff.emoji).count, new Date(timestamp).toISOString())
-          
           redis_client.sendCommand([
             "XADD" ,
             "reactions" , 
@@ -193,6 +194,7 @@ client.on('ready', async listener => {
   // commands
   await client.application.commands.create({name: "ping", description: "responds with ping", type: "CHAT_INPUT"})
   await client.application.commands.create({name: "snapshot", description: "Generates POP Token snapshot", type: "CHAT_INPUT"})
+  //await client.application.commands.create({name: "profile", description: "Lets users view their profile", type: "CHAT_INPUT"})
 });
 
 /*
@@ -433,7 +435,9 @@ client.on('interactionCreate', async interaction => {
 		await ping(interaction);
 	} else if (commandName === 'snapshot') {
 		await generate_snapshot(interaction);
-	}
+	} /*else if (commandName === 'profile') {
+    await generate_profile(interaction);
+  }*/
 });
 
 function handle_message( interaction: Message<boolean>, pattern: string, message: string ) {
@@ -461,6 +465,12 @@ async function generate_snapshot( interaction: CommandInteraction<CacheType> ) {
   // await interaction.channel.send({embeds: [embed]});
   await interaction.reply({embeds: [embed]});
 }
+/*
+async function generate_profile( interaction: CommandInteraction<CacheType> ) {
+  const embed = new MessageEmbed
+  embed.setTitle("Profile");
+}
+*/
 
 async function register_account( interaction: Message<boolean>, account: string ) {
   if ( !valid_account( account ) ) return;
