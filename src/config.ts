@@ -10,6 +10,8 @@ const { TextEncoder, TextDecoder } = require('util');
 // import dotenv from "dotenv";
 require("dotenv").config();
 
+if (!process.env.REDIS_PORT) throw new Error("process.env.REDIS_PORT is required");
+if (!process.env.REDIS_HOST) throw new Error("process.env.REDIS_HOST is required");
 const REDIS_PORT = parseInt(process.env.REDIS_PORT);
 const REDIS_HOST = process.env.REDIS_HOST;
 
@@ -23,8 +25,8 @@ export const redis_client = redis.createClient({
 // REQUIRED configurations
 // if (!process.env.ACTOR) throw new Error("process.env.ACTOR is required");
 // if (!process.env.PRIVATE_KEYS) throw new Error("process.env.PRIVATE_KEYS is required");
-export const ACTOR = process.env.ACTOR;
-export const HEADERS = process.env.HEADERS;
+// export const ACTOR = process.env.ACTOR;
+// export const HEADERS = process.env.HEADERS;
 
 // // wrap fetch
 // function fetch(url: string, params = {} ) {

@@ -24,12 +24,12 @@ client.on('ready', async listener => {
   const messLimit = 100
   const value = redis_client.sendCommand([
     "XREVRANGE",
-    "messages", 
-    "+", 
+    "messages",
+    "+",
     "-",
     "COUNT", String(messLimit * 1.5),
   ]);
-  
+
   value.then(function(last_message) {
     while (retrieve.length != 0) {
       //select from text channel list
@@ -152,11 +152,11 @@ client.on('ready', async listener => {
         })).pop());
 
         //find differences
-        let rev_difference = reactMapped.filter(object1 => 
-          !discMapped.some(object2 => 
-            object1.memberId === object2.memberId && 
-            object1.emoji === object2.emoji && 
-            object1.channelId === object2.channelId && 
+        let rev_difference = reactMapped.filter(object1 =>
+          !discMapped.some(object2 =>
+            object1.memberId === object2.memberId &&
+            object1.emoji === object2.emoji &&
+            object1.channelId === object2.channelId &&
             object1.messageId === object2.messageId
           )
         );
@@ -168,21 +168,23 @@ client.on('ready', async listener => {
         while (difference.length != 0) {
           var  diff = difference[0]
           const react = await channel.messages.fetch(diff.messageId)
-          var timestamp = react.reactions.cache.get(diff.emoji).message.createdTimestamp
+          var timestamp = react.reactions.cache.get(diff.emoji)?.message?.createdTimestamp
           //console.log(diff.channelId, diff.memberId, diff.messageId, diff.emoji, react.reactions.cache.get(diff.emoji).message.content, react.reactions.cache.get(diff.emoji).count, new Date(timestamp).toISOString())
-          redis_client.sendCommand([
-            "XADD" ,
-            "reactions" , 
-            "*" , 
-            "serverId", String(react.reactions.cache.get(diff.emoji).message.guild.id),
-            "memberId", diff.memberId , 
-            "channelId", diff.channelId , 
-            "messageId", diff.messageId,
-            "emoji", diff.emoji , 
-            "messageReactedTo" , String(react.reactions.cache.get(diff.emoji).message.content) ,
-            "totalReactions" , String(react.reactions.cache.get(diff.emoji).count) , 
-            "date" , new Date(timestamp).toISOString()
-          ])
+          if ( timestamp ) {
+            redis_client.sendCommand([
+              "XADD" ,
+              "reactions" ,
+              "*" ,
+              "serverId", String(react.reactions.cache.get(diff.emoji)?.message?.guild?.id),
+              "memberId", diff.memberId ,
+              "channelId", diff.channelId ,
+              "messageId", diff.messageId,
+              "emoji", diff.emoji ,
+              "messageReactedTo" , String(react.reactions.cache.get(diff.emoji)?.message?.content) ,
+              "totalReactions" , String(react.reactions.cache.get(diff.emoji)?.count) ,
+              "date" , new Date(timestamp).toISOString()
+            ])
+          }
           difference.shift();
         }
       })
