@@ -293,7 +293,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   if (oldState.channelId == null && newState.channelId != null) {
     var userState = "joined";
     var voiceChannel = newState.channelId;
-    
+
   } else if (newState.channelId == null && oldState.channelId != null){
       var userState = "left";
       var voiceChannel = oldState.channelId;
@@ -320,15 +320,15 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   //insert voice channel data into redis stream
 
   redis_client.sendCommand([
-    "XADD" , 
-    "voiceChannel" , 
-    "*" , 
+    "XADD" ,
+    "voiceChannel" ,
+    "*" ,
     "serverId" , newState.guild.id,
-    "memberId" , newState.id , 
-    "channelId" , voiceChannel , 
-    "callStatus" , userState , 
-    "muted" , mute , 
-    "deafened" , deaf , 
+    "memberId" , newState.id ,
+    "channelId" , voiceChannel ,
+    "callStatus" , userState ,
+    "muted" , mute ,
+    "deafened" , deaf ,
     "date" , new Date().toISOString()
   ]);
 });
@@ -350,15 +350,16 @@ client.on('messageUpdate', async (previous, current: any)  => {
 //insert messages into redis stream
 
 function text_monitor ( interaction: Message<boolean>, message: string ) {
+  if ( !interaction?.member?.id ) return; // skip if not member
   redis_client.sendCommand([
     "XADD" ,
-    "messages" , 
-    "*" , 
+    "messages" ,
+    "*" ,
     "serverId" , interaction.guild.id,
-    "memberId" , interaction.member.id , 
-    "channelId" , interaction.channelId , 
-    "messageId" , interaction.id, 
-    "message" , message , 
+    "memberId" , interaction.member.id ,
+    "channelId" , interaction.channelId ,
+    "messageId" , interaction.id,
+    "message" , message ,
     "date" , new Date().toISOString()
   ]);
 }
@@ -377,16 +378,16 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
 //insert reactions into redis stream
   redis_client.sendCommand([
-    "XADD" , 
-    "reactions" , 
+    "XADD" ,
+    "reactions" ,
     "*" ,
     "serverId",  reaction.message.guild.id,
-    "memberId" , reaction.message.author['id'] , 
-    "channelId" , reaction.message.channelId , 
+    "memberId" , reaction.message.author['id'] ,
+    "channelId" , reaction.message.channelId ,
     "messageId" , reaction.message.id,
-    "emoji" , reaction.emoji.toString() , 
-    "messageReactedTo" , reaction.message.content , 
-    "totalReactions" , String(reaction.count) , 
+    "emoji" , reaction.emoji.toString() ,
+    "messageReactedTo" , reaction.message.content ,
+    "totalReactions" , String(reaction.count) ,
     "date" , new Date().toISOString()
   ]);
 });
